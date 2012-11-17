@@ -26,7 +26,8 @@ def ShowFinder(url,title):
   for tag in page.xpath("//ul[@class='playlists']/li"):
     title = tag.xpath("./a")[0].text.replace(' Full Episodes','').replace(' -', '')
     channel_id = tag.get("data-channel")
-    oc.add(DirectoryObject(key=Callback(ShowBrowse, channel_id=channel_id, title=title), title=title))  
+    oc.add(DirectoryObject(key=Callback(ShowBrowse, channel_id=channel_id, title=title), title=title))
+  oc.objects.sort(key = lambda obj: obj.title)
   return oc
 
 @route('/video/foodNetwork/showbrowse')
