@@ -58,7 +58,7 @@ def ShowBrowse(channel_id, title = None):
             thumb=Resource.ContentsOfURLWithFallback(url=[thumbpath.replace('92x69', '480x360'), thumbpath], fallback=ICON),
             items=[
                 MediaObject(
-                    parts=[PartObject(key=Callback(PlayVideo, url=url[0], clip=url[1]))]
+                    parts=[PartObject(key=RTMPVideoURL(url=url[0], clip=url[1]))]
                     )
                 ]
             )     
@@ -77,14 +77,9 @@ def VideoDetail(title, summary, thumb, duration, rtmp_url, clip):
         thumb=Resource.ContentsOfURLWithFallback(url=[thumb.replace('92x69', '480x360'), thumb], fallback=ICON),
         items=[
             MediaObject(
-                parts=[PartObject(key=Callback(PlayVideo, url=rtmp_url, clip=clip))]
+                parts=[PartObject(key=RTMPVideoURL(url=rtmp_url, clip=clip))]
                 )
             ]
         )
     )
     return oc
-
-@route('/video/foodNetwork/playvideo')
-@indirect
-def PlayVideo(url, clip):
-    return IndirectResponse(VideoClipObject, key=RTMPVideoURL(url=url, clip=clip))
