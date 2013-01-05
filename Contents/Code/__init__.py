@@ -78,7 +78,7 @@ def ShowBrowse(channel_id, title = None):
     return oc
 
 ####################################################################################################
-@route('/video/foodnetwork/videodetail')
+@route('/video/foodnetwork/videodetail', duration=int)
 def VideoDetail(title, summary, thumb, duration, rtmp_url, clip):
 
     oc = ObjectContainer()
