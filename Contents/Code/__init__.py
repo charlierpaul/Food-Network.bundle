@@ -7,20 +7,14 @@ SHOW_PAGE2 = 'http://www.foodnetwork.com/videos/players/food-network-top-food-vi
 SEARCH = 'http://www.foodnetwork.com/search/search-results.videos.html?searchTerm=%s&page='
 RE_XML = Regex("'vlp-player', '(.+?).videochannel")
 
-ART = 'art-default.jpg'
-ICON = 'icon-default.png'
-
 ####################################################################################################
 def Start():
 
     ObjectContainer.title1 = 'Food Network'
-    ObjectContainer.art = R(ART)
-    DirectoryObject.thumb = R(ICON)
-
     HTTP.CacheTime = CACHE_1HOUR
 
 ####################################################################################################
-@handler("/video/foodnetwork", "Food Network", thumb=ICON, art=ART)
+@handler("/video/foodnetwork", "Food Network")
 def MainMenu():
 
     oc = ObjectContainer()
@@ -75,6 +69,7 @@ def VidSection(title):
         url = BASE_URL + tag.xpath('.//a/@href')[0]
         thumb = tag.xpath('.//img/@src')[0]
         oc.add(DirectoryObject(key=Callback(ShowFinder, url=url, title=title, source='clip'), title=title, thumb=thumb))
+
     return oc
 
 ####################################################################################################
@@ -96,17 +91,17 @@ def ShowBrowse(url, title = None):
         if '/recipes/' in url or '/videos/sc/' in url:
             continue
         if not url.startswith('http://'):
-            url= 'http://' + url
+            url = 'http://' + url
         duration = Datetime.MillisecondsFromString(video.xpath('./length')[0].text)
         thumb = video.xpath('./thumbnailUrl')[0].text.replace('_92x69.jpg', '_480x360.jpg')
         source = video.xpath('./sourceNetwork')[0].text
 
         oc.add(VideoClipObject(
-            url=url,
-            title=title,
-            summary=summary,
-            duration=duration,
-            thumb=Resource.ContentsOfURLWithFallback(url=thumb, fallback=ICON)
+            url = url,
+            title = title,
+            summary = summary,
+            duration = duration,
+            thumb = Resource.ContentsOfURLWithFallback(url=thumb)
         ))
 
     if len(oc) < 1:
@@ -135,20 +130,19 @@ def Search(query='', page=1):
         duration = Datetime.MillisecondsFromString(duration.split('(')[1].split(')')[0])
         thumb = video.xpath(".//img/@src")[0].replace('_126x71.jpg', '_480x360.jpg')
         oc.add(VideoClipObject(
-            url=url,
-            title=title,
-            summary=summary,
-            duration=duration,
-            thumb=Resource.ContentsOfURLWithFallback(url=thumb, fallback=ICON)
+            url = url,
+            title = title,
+            summary = summary,
+            duration = duration,
+            thumb = Resource.ContentsOfURLWithFallback(url=thumb)
         ))
+
     # Paging code. 
     # There is a span code only on previos and next page so if it has an anchor it has a next page
     page_list = video.xpath('//div[@class="pagination"]/ul/li/a/span//text()')
     if page_list and 'Next' in page_list[len(page_list)-1]:
         page = page + 1
         oc.add(NextPageObject(key = Callback(Search, query=query, page=page), title = L("Next Page ...")))
-    else:
-        pass
 
     if len(oc) < 1:
         Log ('still no value for objects')
