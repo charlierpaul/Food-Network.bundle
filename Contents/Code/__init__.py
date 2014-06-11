@@ -7,6 +7,9 @@ SHOW_PAGE2 = 'http://www.foodnetwork.com/videos/players/food-network-top-food-vi
 SEARCH = 'http://www.foodnetwork.com/search/search-results.videos.html?searchTerm=%s&page='
 RE_XML = Regex("'vlp-player', '(.+?).videochannel")
 
+RE_SEASON  = Regex('Season (\d{1,2})')
+RE_EP = Regex('Ep. (\d{1,3})')
+
 ####################################################################################################
 def Start():
 
@@ -28,9 +31,20 @@ def MainMenu():
 def ShowFinder(title, url, source):
 
     oc = ObjectContainer(title2 = title)
-    oc.add(DirectoryObject(key=Callback(ShowBrowse, url=url, title=title), title=title))
-    page = HTML.ElementFromURL(url)
+    content = HTTP.Request(url).content
+    page = HTML.ElementFromString(content)
 
+    matches = RE_XML.search(content)
+    if matches:
+        xml_url = matches.group(1)
+        xml_url = '%s/%s.videochannel.xml' %(BASE_URL, xml_url)
+        title = XML.ElementFromURL(xml_url).xpath("//title/text()")[0].replace(' Full Episodes','').replace(' -', '')
+        if 'Season' in title:
+            season = int(RE_SEASON.search(title).group(1))
+        else:
+            season = 0
+        oc.add(DirectoryObject(key=Callback(ShowBrowse, url=url, title=title, season=season), title=title))
+        
     for tag in page.xpath('//section[@class="video-promo"]'):
         title = tag.xpath("./header/h5")[0].text.replace(' Full Episodes','').replace(' -', '')
         channel_id = tag.xpath('.//div[@class="group"]//a/@href')[0]
@@ -39,7 +53,11 @@ def ShowFinder(title, url, source):
             url = SHOW_PAGE %channel_id
         else:
             url = SHOW_PAGE2 %channel_id
-        oc.add(DirectoryObject(key=Callback(ShowBrowse, url=url, title=title), title=title))
+        if 'Season' in title:
+            season = int(RE_SEASON.search(title).group(1))
+        else:
+            season = 0
+        oc.add(DirectoryObject(key=Callback(ShowBrowse, url=url, title=title, season=season), title=title))
 
     return oc
 
@@ -48,7 +66,6 @@ def ShowFinder(title, url, source):
 def VidHeader(title):
 
     oc = ObjectContainer(title2 = title)
-    oc.add(DirectoryObject(key=Callback(ShowBrowse, url=VID_PAGE, title="Best of Food Network Videos"), title="Best of Food Network Videos"))
     oc.add(DirectoryObject(key=Callback(ShowFinder, title='Top Food Videos', url=TOP_VID_PAGE, source='clip'), title='Top Food Videos'))
     page = HTML.ElementFromURL(VID_PAGE)
 
@@ -74,35 +91,56 @@ def VidSection(title):
 
 ####################################################################################################
 @route('/video/foodnetwork/showbrowse')
-def ShowBrowse(url, title = None):
+def ShowBrowse(url, title = None, season = None):
 
     oc = ObjectContainer(title2=title)
     content = HTTP.Request(url).content
     xml_url = RE_XML.search(content).group(1)
     xml_url = '%s/%s.videochannel.xml' %(BASE_URL, xml_url)
     page = XML.ElementFromURL(xml_url)
+    if season:
+        season=int(season)
 
     for video in page.xpath('//video'):
         title = video.xpath('./clipName')[0].text
         summary = video.xpath('./abstract')[0].text
         url = video.xpath('./permalinkUrl')[0].text
-        # found a few recipes in the video lists and cannot handle videos with /sc/ in them
-        # sample of sc video is http://www.foodnetwork.com/videos/sc/after-hours-hoofin-it-0216118.html
-        if '/recipes/' in url or '/videos/sc/' in url:
+        # found a few recipes in the video lists
+        if '/recipes/' in url:
             continue
         if not url.startswith('http://'):
             url = 'http://' + url
         duration = Datetime.MillisecondsFromString(video.xpath('./length')[0].text)
+        desc = video.xpath("./abstract")[0].text
         thumb = video.xpath('./thumbnailUrl')[0].text.replace('_92x69.jpg', '_480x360.jpg')
         source = video.xpath('./sourceNetwork')[0].text
 
-        oc.add(VideoClipObject(
-            url = url,
-            title = title,
-            summary = summary,
-            duration = duration,
-            thumb = Resource.ContentsOfURLWithFallback(url=thumb)
-        ))
+        if season > 0 or 'Ep.' in title:
+            if 'Ep.' in title:
+                episode = int(RE_EP.search(title).group(1))
+            else:
+                episode = 0
+            oc.add(
+                EpisodeObject(
+                    url = url,
+                    title = title,
+                    duration = duration,
+                    summary = desc,
+                    index = episode,
+                    season = season,
+                    thumb = Resource.ContentsOfURLWithFallback(url=thumb)
+                )
+            )
+        else:
+            oc.add(
+                VideoClipObject(
+                    url = url,
+                    title = title,
+                    duration = duration,
+                    summary = desc,
+                    thumb = Resource.ContentsOfURLWithFallback(url=thumb)
+                )
+            )
 
     if len(oc) < 1:
         Log ('still no value for objects')
@@ -122,9 +160,6 @@ def Search(query='', page=1):
         title = video.xpath("./header/h6/a")[0].text
         summary = video.xpath("./p")[0].text
         url = BASE_URL + video.xpath("./header/h6/a/@href")[0]
-        # There are a few that have /sc/ in the url and do not work with the url service
-        if '/videos/sc/' in url:
-            continue
         duration_list = video.xpath(".//ul/li//text()")
         duration = duration_list[len(duration_list)-1]
         duration = Datetime.MillisecondsFromString(duration.split('(')[1].split(')')[0])
