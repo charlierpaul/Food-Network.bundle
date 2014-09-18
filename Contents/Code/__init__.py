@@ -160,7 +160,7 @@ def ShowBrowse(url, title = None):
         try:
             video_url = BASE_URL + page.xpath('//nav/ul/li/a[@title="Videos"]/@href')[0]
             video_title = title + ' Videos'
-            oc.add(DirectoryObject(key=Callback(ShowBrowse, title=video_title, url=video_url, season=season), title=video_title))
+            oc.add(DirectoryObject(key=Callback(ShowBrowse, title=video_title, url=video_url), title=video_title))
         except:
             return ObjectContainer(header=L('Empty'), message=L('This page does not contain any video'))
 
