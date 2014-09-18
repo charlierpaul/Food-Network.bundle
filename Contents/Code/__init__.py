@@ -50,10 +50,6 @@ def ShowFinder(title, url):
     for tag in page.xpath('//ul/li/div[@class="group"]'):
         title = tag.xpath("./h6//span//text()")[0].replace(' Full Episodes','').replace(' -', '')
         url = BASE_URL + tag.xpath('.//a/@href')[0]
-        if 'Season' in title:
-            season = int(RE_SEASON.search(title).group(1))
-        else:
-            season = 0
         oc.add(DirectoryObject(key=Callback(ShowBrowse, url=url, title=title), title=title))
 
     return oc
