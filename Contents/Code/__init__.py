@@ -118,7 +118,7 @@ def ShowBrowse(url, title = None):
     # To prevent any issues with URLs that do not contain the video playlist json, we put the json pull in a try/except
     try:
         json_data = RE_JSON.search(content).group(1)
-        Log('the value of json_data is %s' %json_data)
+        #Log('the value of json_data is %s' %json_data)
         json = JSON.ObjectFromString(json_data)
     except: json = None
     #Log('the value of json is %s' %json)
@@ -147,14 +147,6 @@ def ShowBrowse(url, title = None):
                 )
             )
 
-        # Some video pages have an additional section below the playlist that link to other shows or video playlists, 
-        # so here we check for that and if the more section is found, we send the URL to the ShowFinder function
-        # to produce the more list
-        try: more_pages = page.xpath('//section[@class="multichannel-component"]//h5//text()')[0]
-        except: more_pages = None
-        if more_pages:
-            oc.add(DirectoryObject(key=Callback(ShowFinder, title=more_pages, url=url), title=more_pages))
-    
     else:
         # If there is not a video player json, see if there is a video page navigation link on the page and send that back to this function
         try:
