@@ -18,7 +18,7 @@ def MainMenu():
 
     oc = ObjectContainer()
     oc.add(DirectoryObject(key=Callback(ShowFinder, title='Full Episodes', url=FULLEP_PAGE), title='Full Episodes'))
-    oc.add(DirectoryObject(key=Callback(VidHeader, title='All Videos'), title='All Videos'))
+    oc.add(DirectoryObject(key=Callback(VidFinder, title='All Videos'), title='All Videos'))
     oc.add(InputDirectoryObject(key=Callback(Search), title='Search for Videos', summary="Click here to search for videos", prompt="Search for the videos"))
     return oc
 
@@ -48,7 +48,7 @@ def ShowFinder(title, url):
     page = HTML.ElementFromString(content)
         
     for tag in page.xpath('//ul/li/div[@class="group"]'):
-        title = tag.xpath("./h6//span//text()")[0].replace(' Full Episodes','').replace(' -', '')
+        title = tag.xpath(".//h4//text()")[0].replace(' Full Episodes','').replace(' -', '')
         url = BASE_URL + tag.xpath('.//a/@href')[0]
         oc.add(DirectoryObject(key=Callback(ShowBrowse, url=url, title=title), title=title))
 
@@ -56,54 +56,29 @@ def ShowFinder(title, url):
 
 ####################################################################################################
 # This function produces a list of headers from the Video page
-@route('/video/foodnetwork/vidheader')
-def VidHeader(title):
+@route('/video/foodnetwork/vidfinder')
+def VidFinder(title):
 
     oc = ObjectContainer(title2 = title)
-    # This directory below pick up the playlist on the Video page
-    oc.add(DirectoryObject(key=Callback(ShowBrowse, title='Best of Food Network Video', url=VID_PAGE), title='Best of Food Network Video'))
     # This directory below pick up the playlist on the Top Video page
     oc.add(DirectoryObject(key=Callback(ShowBrowse, title='Top Food Videos', url=TOP_VID_PAGE), title='Top Food Videos'))
     page = HTML.ElementFromURL(VID_PAGE, cacheTime = CACHE_1DAY)
 
-    for tag in page.xpath('//section[contains(@class, "secondary-grid") or contains(@class, "promo")]/header'):
-        title = tag.xpath("./h5")[0].text.replace(' Full Episodes','').replace(' -', '')
-        # First check if the section has a More link in the upper right hand corner
-        # since that url will have the full playlist for that header
-        try: more_link = BASE_URL + tag.xpath('./*[@class="cta"]/a/@href')[0]
-        except: more_link = None
-        if more_link:
+    for tag in page.xpath('//section/header/h5/a'):
+        title = tag.xpath(".//text()")[0]
+        more_link = BASE_URL + tag.xpath('./@href')[0]
+        # Make sure it is a video page link
+        if '/videos/' in more_link:
             # Send the Full Episode page to create a list of shows with full episodes
-            if 'Full Episode' in title:
+            if 'food-network-full-episodes' in more_link:
                 oc.add(DirectoryObject(key=Callback(ShowFinder, title=title, url=more_link), title=title))
+            # Send the rest to pull the videos for the page with the ShowBrowse function
             else:
                 oc.add(DirectoryObject(key=Callback(ShowBrowse, title=title, url=more_link), title=title))
         # If the section does not have a more link, send it to the VidSection to be broken down further
         else:
-            oc.add(DirectoryObject(key=Callback(VidSection,title=title), title=title))
+            continue
             
-    return oc
-
-####################################################################################################
-# This function produces a list of URLs for headers on the video page that do not have a more link
-@route('/video/foodnetwork/vidsection')
-def VidSection(title):
-
-    oc = ObjectContainer(title2 = title)
-    page = HTML.ElementFromURL(VID_PAGE)
-
-    for tag in page.xpath('//*[text()="%s"]/parent::header/following-sibling::div//div[@class="group"]' %title):
-        title = tag.xpath('.//h6//text()')[0]
-        # One video does not have a link, so we have to put this in a try/except
-        try: url = BASE_URL + tag.xpath('./a/@href')[0]
-        except: continue
-        try: thumb = tag.xpath('.//div[@class="lazy-img"]')[0].text
-        except: thumb = tag.xpath('.//img/@src')[0]
-        thumb = thumb.replace('_92x69.jpg', '_480x360.jpg')
-        # Even though it looks like many of these links are to a specific video, they actually are links to playlists
-        # so we send them to the ShowBrowse function to produce the video playlist for the URL
-        oc.add(DirectoryObject(key=Callback(ShowBrowse, title=title, url=url), title=title, thumb=Resource.ContentsOfURLWithFallback(url=thumb)))
-
     return oc
 
 ####################################################################################################
