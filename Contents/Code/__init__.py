@@ -4,7 +4,7 @@ VID_PAGE = 'http://www.foodnetwork.com/videos.html'
 TOP_VID_PAGE = 'http://www.foodnetwork.com/videos/players/food-network-top-food-videos.html'
 SHOW_PAGE = 'http://www.foodnetwork.com/videos/players/food-network-full-episodes.%s.html'
 SEARCH = 'http://www.foodnetwork.com/search/search-results.videos.html?searchTerm=%s&page='
-RE_JSON = Regex('(\{\"channels\": \[\{.+?\}\]\}) ?,', Regex.DOTALL)
+RE_JSON = Regex('\{"channels\":.+?\}\]\}\]}', Regex.DOTALL)
 
 ####################################################################################################
 def Start():
@@ -36,7 +36,7 @@ def ShowFinder(title, url):
     # produced the playlist for the show in the player.
     if url==FULLEP_PAGE:
         # Use the json to produce the first show that is only listed in the player    
-        try: json_data = RE_JSON.search(content).group(1)   
+        try: json_data = RE_JSON.search(content).group(0)   
         except: json_data = None  
         if json_data:
             json = JSON.ObjectFromString(json_data)
@@ -92,7 +92,7 @@ def ShowBrowse(url, title = None):
     
     # To prevent any issues with URLs that do not contain the video playlist json, we put the json pull in a try/except
     try:
-        json_data = RE_JSON.search(content).group(1)
+        json_data = RE_JSON.search(content).group(0)
         #Log('the value of json_data is %s' %json_data)
         json = JSON.ObjectFromString(json_data)
     except: json = None
