@@ -1,89 +1,50 @@
+NAME = 'Food Network'
+PREFIX = '/video/foodnetwork'
 BASE_URL = 'http://www.foodnetwork.com'
-FULLEP_PAGE = 'http://www.foodnetwork.com/videos/players/food-network-full-episodes.html'
+FULLEP_URL = 'http://www.foodnetwork.com/videos/players/food-network-full-episodes.vc.html'
 VID_PAGE = 'http://www.foodnetwork.com/videos.html'
-TOP_VID_PAGE = 'http://www.foodnetwork.com/videos/players/food-network-top-food-videos.html'
-SHOW_PAGE = 'http://www.foodnetwork.com/videos/players/food-network-full-episodes.%s.html'
-SEARCH = 'http://www.foodnetwork.com/search/search-results.videos.html?searchTerm=%s&page='
-RE_JSON = Regex('\{"channels\":.+?\}\]\}\]}', Regex.DOTALL)
 
+RE_JSON = Regex('\{"channels\":.+?\}\]\}', Regex.DOTALL)
 ####################################################################################################
 def Start():
 
-    ObjectContainer.title1 = 'Food Network'
+    ObjectContainer.title1 = NAME
     HTTP.CacheTime = CACHE_1HOUR
 
 ####################################################################################################
-@handler("/video/foodnetwork", "Food Network")
+@handler(PREFIX, NAME)
 def MainMenu():
 
     oc = ObjectContainer()
-    oc.add(DirectoryObject(key=Callback(ShowFinder, title='Full Episodes', url=FULLEP_PAGE), title='Full Episodes'))
+    oc.add(DirectoryObject(key = Callback(FullEpMenu,  title='Full Episodes'), title='Full Episodes'))
     oc.add(DirectoryObject(key=Callback(VidFinder, title='All Videos'), title='All Videos'))
-    oc.add(InputDirectoryObject(key=Callback(Search), title='Search for Videos', summary="Click here to search for videos", prompt="Search for the videos"))
     return oc
 
 ####################################################################################################
-# This function produces a list of more sections, shows, or videos that are listed below the playlist on a page
-@route('/video/foodnetwork/showfinder')
-def ShowFinder(title, url):
+# This function produces a list of shows from the Food Network full episodes page
+@route(PREFIX + '/fullepmenu')
+def FullEpMenu(title):
 
-    oc = ObjectContainer(title2 = title)
-    content = HTTP.Request(url).content
-    
-    # When using the ShowFinder function to pull the list of shows from the FULLEP_PAGE URL, one show is not listed
-    # because it is in the player of the page, so we have to pull the info for that show out of the player json so it 
-    # will be included in the list of Full Episode Shows. Any other pages sent to this function has already named and
-    # produced the playlist for the show in the player.
-    if url==FULLEP_PAGE:
-        # Use the json to produce the first show that is only listed in the player    
-        try: json_data = RE_JSON.search(content).group(0)   
-        except: json_data = None  
-        if json_data:
-            json = JSON.ObjectFromString(json_data)
-            show_title = json['channels'][0]['title']
-            channel_id = json['channels'][0]['videos'][0]['cmsid']
-            show_url = SHOW_PAGE %channel_id
-            oc.add(DirectoryObject(key=Callback(ShowBrowse, url=show_url, title=show_title), title=show_title))
-    
-    page = HTML.ElementFromString(content)
-        
-    for tag in page.xpath('//ul/li/div[@class="group"]'):
-        title = tag.xpath(".//h4//text()")[0].replace(' Full Episodes','').replace(' -', '')
-        url = BASE_URL + tag.xpath('.//a/@href')[0]
-        oc.add(DirectoryObject(key=Callback(ShowBrowse, url=url, title=title), title=title))
+    oc = ObjectContainer(title2=title)
 
-    return oc
+    for item in HTML.ElementFromURL(FULLEP_URL).xpath('//div[@class="pull-right"]/select/option'):
 
-####################################################################################################
-# This function produces a list of headers from the Video page
-@route('/video/foodnetwork/vidfinder')
-def VidFinder(title):
+        title = item.xpath('./text()')[0]
+        url = BASE_URL + item.xpath('./@value')[0]
 
-    oc = ObjectContainer(title2 = title)
-    # This directory below pick up the playlist on the Top Video page
-    oc.add(DirectoryObject(key=Callback(ShowBrowse, title='Top Food Videos', url=TOP_VID_PAGE), title='Top Food Videos'))
-    page = HTML.ElementFromURL(VID_PAGE, cacheTime = CACHE_1DAY)
+        oc.add(DirectoryObject(
+            key = Callback(ShowBrowse, url=url, title=title),
+            title = title
+        ))
 
-    for tag in page.xpath('//section/header/h5/a'):
-        title = tag.xpath(".//text()")[0]
-        more_link = BASE_URL + tag.xpath('./@href')[0]
-        # Make sure it is a video page link
-        if '/videos/' in more_link:
-            # Send the Full Episode page to create a list of shows with full episodes
-            if 'food-network-full-episodes' in more_link:
-                oc.add(DirectoryObject(key=Callback(ShowFinder, title=title, url=more_link), title=title))
-            # Send the rest to pull the videos for the page with the ShowBrowse function
-            else:
-                oc.add(DirectoryObject(key=Callback(ShowBrowse, title=title, url=more_link), title=title))
-        # If the section does not have a more link, send it to the VidSection to be broken down further
-        else:
-            continue
-            
-    return oc
+    if len(oc) < 1:
+        return ObjectContainer(header='Empty', message='There are no full episode shows to list')
+    else:
+        return oc
 
 ####################################################################################################
 # This function produces a list of videos for a URL using the json video list in the player of each page
-@route('/video/foodnetwork/showbrowse')
+@route(PREFIX + '/showbrowse')
 def ShowBrowse(url, title = None):
 
     oc = ObjectContainer(title2=title)
@@ -138,38 +99,50 @@ def ShowBrowse(url, title = None):
         return oc
 
 ####################################################################################################
-@route('/video/foodnetwork/search', page=int)
-def Search(query='', page=1):
+# This function produces a list of headers from the Video page
+@route(PREFIX + '/vidfinder')
+def VidFinder(title):
 
-    oc = ObjectContainer()
-    local_url = SEARCH %String.Quote(query, usePlus = True) + str(page)
-    html = HTML.ElementFromURL(local_url)
+    oc = ObjectContainer(title2 = title)
+    page = HTML.ElementFromURL(VID_PAGE, cacheTime = CACHE_1DAY)
+    oc.add(DirectoryObject(key=Callback(TopSlide, title='Top Food Videos', url=VID_PAGE), title='Top Food Videos'))
 
-    for video in html.xpath('//article[@class="video"]'):
-        title = video.xpath("./header/h6/a")[0].text
-        summary = video.xpath("./p")[0].text
-        url = BASE_URL + video.xpath("./header/h6/a/@href")[0]
-        duration_list = video.xpath(".//ul/li//text()")
-        duration = duration_list[len(duration_list)-1]
-        duration = Datetime.MillisecondsFromString(duration.split('(')[1].split(')')[0])
-        thumb = video.xpath(".//img/@src")[0].replace('_126x71.jpg', '_480x360.jpg')
+    for tag in page.xpath('//section/header/h5/a'):
+        title = tag.xpath(".//text()")[0]
+        more_link = BASE_URL + tag.xpath('./@href')[0]
+        # Send the Full Episode page to create a list of shows with full episodes
+        if 'food-network-full-episodes' in more_link:
+            oc.add(DirectoryObject(key=Callback(FullEpMenu, title=title), title=title))
+        # Send the rest to pull the videos for the page with the ShowBrowse function
+        else:
+            oc.add(DirectoryObject(key=Callback(ShowBrowse, title=title, url=more_link), title=title))
+            
+    if len(oc) < 1:
+        Log ('still no value for objects')
+        return ObjectContainer(header="Empty", message="There are no videos to list right now.")
+    else:
+        return oc
+####################################################################################################
+# This function produces a list of videos from the top slider
+@route(PREFIX + '/topslide')
+def TopSlide(title, url):
+
+    oc = ObjectContainer(title2=title)
+
+    for item in HTML.ElementFromURL(url).xpath('//div[contains(@class, "royalSlider")]/a'):
+        title = item.xpath('.//h4/span/text()')[0]
+        url = BASE_URL + item.xpath('./@href')[0]
+        thumb = item.xpath('.//img/@src')[0]
+        duration = Datetime.MillisecondsFromString(item.xpath('.//h4/cite/text()')[0].replace('(', '').replace(')', ''))
+
         oc.add(VideoClipObject(
             url = url,
             title = title,
-            summary = summary,
             duration = duration,
             thumb = Resource.ContentsOfURLWithFallback(url=thumb)
         ))
 
-    # Paging code. 
-    # There is a span code only on previous and next page so if it has an anchor it has a next page
-    page_list = video.xpath('//div[@class="pagination"]/ul/li/a/span//text()')
-    if page_list and 'Next' in page_list[len(page_list)-1]:
-        page = page + 1
-        oc.add(NextPageObject(key = Callback(Search, query=query, page=page), title = L("Next Page ...")))
-
     if len(oc) < 1:
-        Log ('still no value for objects')
-        return ObjectContainer(header="Empty", message="There are no videos to list right now.")
+        return ObjectContainer(header='Empty', message='There are no full episode shows to list')
     else:
         return oc
