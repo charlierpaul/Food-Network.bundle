@@ -67,7 +67,7 @@ def ShowBrowse(url, title = None):
             # found a few recipes in the video lists
             if '/recipes/' in vid_url:
                 continue
-            duration = video['length']
+            duration = int(video['length'])*1000
             desc = video['description']
             thumb = video['thumbnailUrl'].replace('_92x69.jpg', '_480x360.jpg')
 
